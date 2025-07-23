@@ -1,4 +1,4 @@
-# 🎧 Spotify Music Recommender
+# 🎧 AlogRhythm
 
 ## Overview
 
