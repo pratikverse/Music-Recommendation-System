@@ -1,4 +1,4 @@
-# 🎧 AlogRhythm
+# 🎧 AlgoRhythm
 
 ## Overview
 
