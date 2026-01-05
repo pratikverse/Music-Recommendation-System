@@ -1,35 +1,60 @@
-# ALGORHYTHM
+# 🎵 Music Recommendation System
 
-## OVERVIEW
+An intelligent **music recommendation system** that suggests sonically similar tracks using deep learning and nearest-neighbor search — deployed as an interactive **Streamlit web app**.
 
-This project delivers an intelligent music recommendation system that curates personalized track suggestions based on user preference. It employs a deep learning autoencoder to learn rich, low-dimensional representations of music features, which are then leveraged by a K-Nearest Neighbors (KNN) algorithm to identify sonically similar tracks, even across diverse genres. The entire system is deployed as an intuitive Streamlit web application, offering a seamless and interactive user experience.
+---
 
-## FEATURES
+## ✨ Overview
+It learns meaningful representations of music using a **deep autoencoder**, then identifies similar tracks via **K-Nearest Neighbors (KNN)** in a latent feature space. This approach enables accurate recommendations even across diverse genres, presented through a clean and interactive web interface.
 
-* **TRACK RECOMMENDATIONS:** Users can select a track from the Spotify dataset acquired from Huggingface, and the system recommends nine similar tracks.
-* **GENRE VISUALISATION:** A 3D visualization of tracks in the dataset, colored by genre, provides insights into the relationships between different music genres.
-* **WEB APPLICATIOn:** The Streamlit application provides an intuitive interface for exploring recommendations.
+---
 
-## TECHNICAL DETAILS
+## 🚀 Features
+- 🎧 **Personalized Recommendations** – Select a track and receive **9 similar songs**
+- 🌈 **3D Genre Visualization** – Explore genre relationships in latent space
+- 🖥️ **Interactive Web App** – Seamless exploration with Streamlit
 
-1.  **PREPROCESSING**
-    * The Spotify tracks dataset is loaded and preprocessed.
-    * Numeric features relevant to track similarity (e.g., danceability, energy, loudness) are selected.
-    * Data is scaled using StandardScaler.
-    * Categorical genre data is encoded.
+---
 
-2.  **FEATURE EXTRACTION**
-    * An autoencoder neural network is trained to reduce the dimensionality of the track features into a lower-dimensional "latent space."  This helps the model to capture the essential characteristics of each song.
-    * The encoder part of the autoencoder is used to generate the latent representations for all tracks.
+## ⚙️ How It Works
 
-3.  **SIMILARITY CALCULATION**
-    * A KNN model is trained on the latent representations of the tracks. The cosine distance metric is used to measure similarity between tracks in the latent space.
+### 1. Preprocessing
+- Spotify dataset sourced from **HuggingFace**
+- Selection of numeric audio features (danceability, energy, loudness, etc.)
+- Feature scaling using **StandardScaler**
+- Genre encoding for visualization
 
-4.  **RECOMMENDATION GENERATION**
-    * When a user selects a track, the KNN model finds the k-nearest neighbors (most similar tracks) in the latent space.
-    * The system returns the top 9 most similar tracks as recommendations.
+### 2. Feature Extraction
+- A **deep autoencoder** compresses high-dimensional audio features
+- Encoder outputs a compact **latent representation** for each track
 
-5.  **WEB APP**
-    * Streamlit is used to create an interactive web application.
-    * Users can select a song, view its audio preview, and see recommendations.
-    * The 3D genre visualization is displayed using Plotly.
+### 3. Similarity Modeling
+- **KNN** trained on latent vectors
+- **Cosine similarity** used to measure track closeness
+
+### 4. Recommendation Engine
+- Given a selected song, KNN retrieves nearest neighbors
+- Top **9 most similar tracks** returned as recommendations
+
+### 5. Web Application
+- Built using **Streamlit**
+- Song selection with audio preview
+- Interactive **3D genre plot** using Plotly
+
+---
+
+## 🛠️ Tech Stack
+- Python  
+- TensorFlow / Keras  
+- Scikit-learn  
+- Streamlit  
+- Plotly  
+
+---
+
+## 🎯 Use Cases
+- Music discovery platforms  
+- Personalized recommendation systems  
+- Audio feature analysis & visualization  
+
+---
