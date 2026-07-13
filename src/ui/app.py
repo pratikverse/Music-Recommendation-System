@@ -1,5 +1,10 @@
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from src.models.search import (
+    build_search_choices,
+    fuzzy_search,
+)
 
 from src.models.artifacts import load_artifacts
 from src.models.recommender import (
@@ -25,10 +30,10 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🎧 TuneMatch")
+st.title("🎧 TuneMatch AI")
 
 st.caption(
-    "Hybrid Music Recommendation System using Deep Autoencoders and KNN"
+    "AI-powered Music Recommendation Engine using Deep Autoencoders"
 )
 
 # -------------------------------------------------------
@@ -59,6 +64,24 @@ tab1, tab2 = st.tabs(
         "📊 Visualization",
     ]
 )
+col1, col2, col3 = st.columns(3)
+
+col1.metric(
+    "Songs",
+    f"{len(df):,}",
+)
+
+col2.metric(
+    "Artists",
+    df["artists"].nunique(),
+)
+
+col3.metric(
+    "Genres",
+    df["track_genre"].nunique(),
+)
+
+st.divider()
 
 # -------------------------------------------------------
 # Spotify Embed
@@ -126,15 +149,47 @@ with tab1:
         st.error("No songs available.")
         st.stop()
 
-    track_options = [
-        f"{row.track_name} — {row.artists}"
-        for row in df.itertuples()
-    ]
+    search_choices = build_search_choices(df)
+
+query = st.text_input(
+    "🔍 Search Song or Artist"
+)
+
+if query:
+
+    matches = fuzzy_search(
+        query,
+        search_choices,
+    )
+
+    if matches:
+
+        options = {
+            choice: index
+            for choice, score, index in matches
+        }
+
+        selected_name = st.selectbox(
+            "Matching Songs",
+            list(options.keys()),
+        )
+
+        selected_track = options[selected_name]
+
+    else:
+
+        st.warning(
+            "No matching songs found."
+        )
+
+        st.stop()
+
+else:
 
     selected_track = st.selectbox(
-        "Choose a song",
-        options=range(len(track_options)),
-        format_func=lambda x: track_options[x],
+        "Browse Songs",
+        range(len(search_choices)),
+        format_func=lambda x: search_choices[x],
     )
 
     if st.button(
@@ -147,7 +202,7 @@ with tab1:
             selected_track,
         )
 
-        st.subheader("Selected Song")
+        st.subheader("Currently Playing")
 
         col1, col2 = st.columns([2, 3])
 
@@ -164,66 +219,83 @@ with tab1:
 
         with col2:
 
-            st.markdown(
-                f"""
-### {selected["track_name"]}
+           st.markdown(
+    f"""
+# 🎵 {selected["track_name"]}
 
-**Artist**
+### 👤 {selected["artists"]}
 
-{selected["artists"]}
+🎼 **Genre:** {selected["track_genre"]}
 
-**Genre**
-
-{selected["track_genre"]}
+🔥 **Popularity:** {selected["popularity"] if "popularity" in selected else "N/A"}
 """
-            )
+)
 
         st.divider()
 
         st.subheader("Recommended Songs")
 
         recommendations = recommend_tracks(
-            track_index=selected_track,
-            dataframe=df,
-            latent_features=latent_features,
-            knn=knn,
+    track_index=selected_track,
+    dataframe=df,
+    latent_features=latent_features,
+    knn=knn,
+)
+
+cols = st.columns(2)
+
+for index, row in recommendations.iterrows():
+
+    with cols[index % 2]:
+
+        similarity = row["similarity"] * 100
+
+        ranking = row["ranking_score"] * 100
+
+        popularity = (
+            row["popularity"]
+            if "popularity" in row
+            else "N/A"
         )
 
-        cols = st.columns(3)
-
-        for index, row in enumerate(
-            recommendations.itertuples()
-        ):
-
-            with cols[index % 3]:
-
-                st.markdown(
-                    f"""
+        st.markdown(
+            f"""
 <div class="dark-card">
 
-### {row.track_name}
+## 🎵 {row['track_name']}
 
-**Artist**
+**👤 Artist**
 
-{row.artists}
+{row['artists']}
 
-**Genre**
+**🎼 Genre**
 
-{row.track_genre}
+{row['track_genre']}
+
+---
+
+**🎯 Similarity**
+
+{similarity:.2f}%
+
+**⭐ Ranking Score**
+
+{ranking:.2f}
+
+**🔥 Popularity**
+
+{popularity}
 
 </div>
 """,
-                    unsafe_allow_html=True,
-                )
+            unsafe_allow_html=True,
+        )
 
-                if (
-                    hasattr(row, "track_id")
-                    and row.track_id
-                ):
+        if pd.notna(row["track_id"]):
 
-                    spotify_embed(
-                        row.track_id
-                    )
+            spotify_embed(
+                row["track_id"]
+            )
 # ==========================================================
 # Visualization Tab
 # ==========================================================

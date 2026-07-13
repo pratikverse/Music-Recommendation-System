@@ -1,5 +1,5 @@
 """
-Recommendation engine utilities.
+Recommendation engine for TuneMatch.
 """
 
 from __future__ import annotations
@@ -21,15 +21,7 @@ def build_knn_model(
     algorithm: str = KNN_ALGORITHM,
 ) -> NearestNeighbors:
     """
-    Train a KNN model on latent song embeddings.
-
-    Args:
-        latent_features: Latent vectors from the encoder.
-        metric: Distance metric.
-        algorithm: KNN search algorithm.
-
-    Returns:
-        Trained NearestNeighbors model.
+    Train the KNN recommender.
     """
 
     knn = NearestNeighbors(
@@ -42,102 +34,126 @@ def build_knn_model(
     return knn
 
 
+def rank_candidates(
+    candidates: pd.DataFrame,
+    similarities: np.ndarray,
+) -> pd.DataFrame:
+    """
+    Rank recommendation candidates.
+    """
+
+    ranked = candidates.copy()
+
+    ranked["similarity"] = similarities
+
+    if "popularity" in ranked.columns:
+
+        ranked["popularity_score"] = (
+            ranked["popularity"] / 100
+        )
+
+    else:
+
+        ranked["popularity_score"] = 0
+
+    ranked["ranking_score"] = (
+        0.85 * ranked["similarity"]
+        +
+        0.15 * ranked["popularity_score"]
+    )
+
+    ranked = ranked.sort_values(
+        "ranking_score",
+        ascending=False,
+    )
+
+    return ranked
+
+
+def diversify_artists(
+    recommendations: pd.DataFrame,
+    max_per_artist: int = 2,
+) -> pd.DataFrame:
+    """
+    Prevent one artist from dominating recommendations.
+    """
+
+    final = []
+
+    artist_counter = {}
+
+    for _, row in recommendations.iterrows():
+
+        artist = row["artists"]
+
+        count = artist_counter.get(
+            artist,
+            0,
+        )
+
+        if count >= max_per_artist:
+            continue
+
+        artist_counter[artist] = count + 1
+
+        final.append(row)
+
+    return pd.DataFrame(final)
+
+
 def recommend_tracks(
     track_index: int,
     dataframe: pd.DataFrame,
     latent_features: np.ndarray,
     knn: NearestNeighbors,
-    n_neighbors: int = KNN_NEIGHBORS,
-    n_recommendations: int = 9,
+    n_neighbors: int = 50,
+    n_recommendations: int = 10,
 ) -> pd.DataFrame:
     """
-    Recommend tracks similar to a selected track.
-
-    Parameters
-    ----------
-    track_index:
-        Index of the selected track.
-
-    dataframe:
-        Processed dataframe.
-
-    latent_features:
-        Latent vectors.
-
-    knn:
-        Trained KNN model.
-
-    Returns
-    -------
-    DataFrame containing recommended tracks.
+    Recommend tracks.
     """
 
-    if track_index < 0 or track_index >= len(dataframe):
+    if track_index >= len(dataframe):
         raise ValueError("Invalid track index.")
 
-    track_vector = latent_features[track_index].reshape(1, -1)
+    query = latent_features[
+        track_index
+    ].reshape(1, -1)
 
-    _, indices = knn.kneighbors(
-        track_vector,
+    distances, indices = knn.kneighbors(
+        query,
         n_neighbors=n_neighbors,
     )
 
+    distances = distances.flatten()[1:]
+
     indices = indices.flatten()[1:]
 
-    recommendations = dataframe.iloc[indices]
+    candidates = dataframe.iloc[
+        indices
+    ].copy()
 
-    recommendations = recommendations.drop_duplicates(
+    similarities = 1 - distances
+
+    candidates = rank_candidates(
+        candidates,
+        similarities,
+    )
+
+    candidates = candidates.drop_duplicates(
         subset=[
             "track_name",
             "artists",
         ]
     )
 
-    recommendations = recommendations.head(
-        n_recommendations
+    candidates = diversify_artists(
+        candidates,
+        max_per_artist=2,
     )
 
-    columns = [
-        "track_name",
-        "artists",
-        "track_genre",
-        "track_id",
-    ]
-
-    return recommendations[columns]
-
-
-def recommend_by_name(
-    track_name: str,
-    dataframe: pd.DataFrame,
-    latent_features: np.ndarray,
-    knn: NearestNeighbors,
-    n_neighbors: int = KNN_NEIGHBORS,
-    n_recommendations: int = 9,
-) -> pd.DataFrame:
-    """
-    Recommend songs using the track name.
-    """
-
-    matches = dataframe[
-        dataframe["track_name"].str.lower()
-        == track_name.lower()
-    ]
-
-    if matches.empty:
-        raise ValueError(
-            f"Track '{track_name}' not found."
-        )
-
-    track_index = matches.index[0]
-
-    return recommend_tracks(
-        track_index=track_index,
-        dataframe=dataframe,
-        latent_features=latent_features,
-        knn=knn,
-        n_neighbors=n_neighbors,
-        n_recommendations=n_recommendations,
+    return candidates.head(
+        n_recommendations
     )
 
 
@@ -146,10 +162,9 @@ def get_track_details(
     track_index: int,
 ) -> pd.Series:
     """
-    Return metadata for a selected track.
+    Return metadata for one track.
     """
 
-    if track_index < 0 or track_index >= len(dataframe):
-        raise ValueError("Invalid track index.")
-
-    return dataframe.iloc[track_index]
+    return dataframe.iloc[
+        track_index
+    ]
