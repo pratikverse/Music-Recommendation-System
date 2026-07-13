@@ -81,7 +81,6 @@ Pygments==2.19.2
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
 pytz==2025.2
-pywin32==311
 PyYAML==6.0.2
 pyzmq==27.0.0
 RapidFuzz==3.13.0
@@ -106,7 +105,6 @@ toml==0.10.2
 tornado==6.5.1
 tqdm==4.67.1
 traitlets==5.14.3
--e git+https://github.com/pratikverse/Music-Recommendation-System.git@97be738b3b5086d4d298152138827e89d2330308#egg=tunematch
 typing_extensions==4.14.1
 tzdata==2025.2
 urllib3==2.5.0
