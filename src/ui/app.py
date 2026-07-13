@@ -1,28 +1,25 @@
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-from src.models.search import (
-    build_search_choices,
-    fuzzy_search,
-)
 
 from src.models.artifacts import load_artifacts
-from src.models.recommender import (
-    recommend_tracks,
-    get_track_details,
+from src.models.explain import explain_recommendation
+from src.models.genre import (
+    GENRE_EXPLORER_OPTIONS,
+    generate_genre_playlist,
+    recommend_by_genre,
 )
-from src.models.visualization import (
-    plot_feature_heatmap,
-    plot_tracks_by_genre,
+from src.models.mood import (
+    MOOD_ORDER,
+    assign_moods,
+    explain_mood_fit,
+    recommend_by_mood,
 )
+from src.models.preprocessing import NUMERIC_FEATURES
+from src.models.recommender import get_track_details, recommend_tracks
+from src.models.search import build_search_index, intelligent_search
+from src.models.visualization import plot_feature_heatmap, plot_tracks_by_genre
 
-from src.models.preprocessing import (
-    NUMERIC_FEATURES,
-)
-
-# -------------------------------------------------------
-# Streamlit Configuration
-# -------------------------------------------------------
 
 st.set_page_config(
     page_title="TuneMatch",
@@ -31,64 +28,27 @@ st.set_page_config(
 )
 
 st.title("🎧 TuneMatch AI")
-
 st.caption(
-    "AI-powered Music Recommendation Engine using Deep Autoencoders"
+    "AI-powered music recommendation engine using deep autoencoders"
 )
 
-# -------------------------------------------------------
-# Load Artifacts
-# -------------------------------------------------------
 
 @st.cache_resource
 def load_resources():
-
     return load_artifacts()
 
 
-resources = load_resources()
+@st.cache_data
+def build_catalog_search_v2(dataframe: pd.DataFrame):
+    return build_search_index(dataframe)
 
-df = resources["dataframe"]
 
-latent_features = resources["latent_features"]
+@st.cache_data
+def build_mood_catalog(dataframe: pd.DataFrame):
+    return assign_moods(dataframe)
 
-knn = resources["knn"]
 
-# -------------------------------------------------------
-# Tabs
-# -------------------------------------------------------
-
-tab1, tab2 = st.tabs(
-    [
-        "🎵 Recommendations",
-        "📊 Visualization",
-    ]
-)
-col1, col2, col3 = st.columns(3)
-
-col1.metric(
-    "Songs",
-    f"{len(df):,}",
-)
-
-col2.metric(
-    "Artists",
-    df["artists"].nunique(),
-)
-
-col3.metric(
-    "Genres",
-    df["track_genre"].nunique(),
-)
-
-st.divider()
-
-# -------------------------------------------------------
-# Spotify Embed
-# -------------------------------------------------------
-
-def spotify_embed(track_id: str):
-
+def spotify_embed(track_id: str) -> None:
     if not track_id:
         return
 
@@ -109,216 +69,365 @@ def spotify_embed(track_id: str):
     )
 
 
-# -------------------------------------------------------
-# Card CSS
-# -------------------------------------------------------
+def render_track_summary(track: pd.Series) -> None:
+    popularity = (
+        track["popularity"]
+        if "popularity" in track
+        else "N/A"
+    )
 
-st.markdown(
-    """
-<style>
+    st.markdown(
+        f"""
+        ### {track["track_name"]}
+        **Artist:** {track["artists"]}  
+        **Genre:** {track["track_genre"]}  
+        **Popularity:** {popularity}
+        """
+    )
 
-.dark-card{
 
-background:#1a1a1a;
+def render_recommendation_card(
+    recommendation: pd.Series,
+    selected_track: pd.Series,
+) -> None:
+    explanation = explain_recommendation(
+        selected_track,
+        recommendation,
+    )
+    similarity = explanation["similarity_percent"]
+    ranking = explanation["ranking_score_percent"]
+    popularity = explanation["popularity"]
 
-padding:15px;
+    with st.container(border=True):
+        st.markdown(
+            f"""
+            **{recommendation["track_name"]}**  
+            {recommendation["artists"]}  
+            Genre: {recommendation["track_genre"]}
+            """
+        )
+        st.progress(float(recommendation["similarity"]))
+        st.caption(
+            f"{similarity:.2f}% similarity | {ranking:.2f} ranking score | popularity {popularity}"
+        )
 
-border-radius:12px;
+        st.write("Why this song was chosen")
+        st.write(explanation["summary"])
+        st.write(
+            f'Ranking breakdown: similarity contributed the most, and popularity helped refine the final score to {ranking:.2f}%.'
+        )
 
-margin-bottom:20px;
+        if explanation["top_reasons"]:
+            st.write("Main reasons:")
+            for reason in explanation["top_reasons"]:
+                st.write(f"- {reason}")
 
-border:1px solid #333;
+        if explanation["feature_matches"]:
+            st.write("Feature-level similarity:")
+            for match in explanation["feature_matches"][:5]:
+                st.write(
+                    f'- {match["label"]}: '
+                    f'{match["closeness"] * 100:.1f}% close '
+                    f'(difference {match["difference"]:.3f})'
+                )
 
-}
+        track_id = recommendation.get("track_id")
+        if pd.notna(track_id):
+            spotify_embed(track_id)
 
-</style>
 
-""",
-    unsafe_allow_html=True,
+resources = load_resources()
+df = resources["dataframe"]
+latent_features = resources["latent_features"]
+knn = resources["knn"]
+df_with_moods = build_mood_catalog(df)
+search_index = build_catalog_search_v2(df)
+
+tab1, tab2, tab3, tab4 = st.tabs(
+    [
+        "Recommendations",
+        "Mood Recommendations",
+        "Genre Explorer",
+        "Visualization",
+    ]
 )
 
-# ==========================================================
-# Recommendations Tab
-# ==========================================================
+col1, col2, col3 = st.columns(3)
+col1.metric("Songs", f"{len(df):,}")
+col2.metric("Artists", df["artists"].nunique())
+col3.metric("Genres", df["track_genre"].nunique())
+
+st.divider()
 
 with tab1:
-
-    st.header("🎵 Music Recommendations")
+    st.header("Music Recommendations")
 
     if df.empty:
         st.error("No songs available.")
         st.stop()
 
-    search_choices = build_search_choices(df)
-
-query = st.text_input(
-    "🔍 Search Song or Artist"
-)
-
-if query:
-
-    matches = fuzzy_search(
-        query,
-        search_choices,
+    search_query = st.text_input(
+        "Search by song title or artist",
+        placeholder="Try: blinding lights, weeknd, shape of you, calm down...",
+        help="Supports partial matches, artist search, autocomplete-style suggestions, and typo correction.",
     )
 
-    if matches:
-
-        options = {
-            choice: index
-            for choice, score, index in matches
-        }
-
-        selected_name = st.selectbox(
-            "Matching Songs",
-            list(options.keys()),
+    if search_query.strip():
+        matches = intelligent_search(
+            search_query,
+            search_index,
+            limit=12,
         )
 
-        selected_track = options[selected_name]
+        if not matches:
+            st.warning(
+                "No close matches found. Try a different song title or artist."
+            )
+            st.stop()
 
+        st.caption("Autocomplete suggestions")
+
+        selected_option = st.selectbox(
+            "Matching tracks",
+            matches,
+            format_func=lambda match: (
+                f'{match["label"]}  |  match {match["score"]:.0f}%'
+            ),
+        )
+        selected_track_index = selected_option["index"]
     else:
-
-        st.warning(
-            "No matching songs found."
+        browse_options = [
+            {
+                "index": entry.index,
+                "label": entry.label,
+            }
+            for entry in search_index
+        ]
+        selected_option = st.selectbox(
+            "Browse songs",
+            browse_options,
+            format_func=lambda option: option["label"],
         )
-
-        st.stop()
-
-else:
-
-    selected_track = st.selectbox(
-        "Browse Songs",
-        range(len(search_choices)),
-        format_func=lambda x: search_choices[x],
-    )
+        selected_track_index = selected_option["index"]
 
     if st.button(
         "Get Recommendations",
         use_container_width=True,
     ):
-
-        selected = get_track_details(
+        selected_track = get_track_details(
             df,
-            selected_track,
+            selected_track_index,
         )
 
         st.subheader("Currently Playing")
+        now_playing_col, details_col = st.columns([2, 3])
 
-        col1, col2 = st.columns([2, 3])
+        with now_playing_col:
+            track_id = selected_track.get("track_id")
+            if pd.notna(track_id):
+                spotify_embed(track_id)
 
-        with col1:
-
-            if (
-                "track_id" in selected
-                and selected["track_id"]
-            ):
-
-                spotify_embed(
-                    selected["track_id"]
-                )
-
-        with col2:
-
-           st.markdown(
-    f"""
-# 🎵 {selected["track_name"]}
-
-### 👤 {selected["artists"]}
-
-🎼 **Genre:** {selected["track_genre"]}
-
-🔥 **Popularity:** {selected["popularity"] if "popularity" in selected else "N/A"}
-"""
-)
+        with details_col:
+            render_track_summary(selected_track)
 
         st.divider()
-
         st.subheader("Recommended Songs")
 
         recommendations = recommend_tracks(
-    track_index=selected_track,
-    dataframe=df,
-    latent_features=latent_features,
-    knn=knn,
-)
-
-cols = st.columns(2)
-
-for index, row in recommendations.iterrows():
-
-    with cols[index % 2]:
-
-        similarity = row["similarity"] * 100
-
-        ranking = row["ranking_score"] * 100
-
-        popularity = (
-            row["popularity"]
-            if "popularity" in row
-            else "N/A"
+            track_index=selected_track_index,
+            dataframe=df,
+            latent_features=latent_features,
+            knn=knn,
         )
 
-        st.markdown(
-            f"""
-<div class="dark-card">
+        left_col, right_col = st.columns(2)
 
-## 🎵 {row['track_name']}
-
-**👤 Artist**
-
-{row['artists']}
-
-**🎼 Genre**
-
-{row['track_genre']}
-
----
-
-**🎯 Similarity**
-
-{similarity:.2f}%
-
-**⭐ Ranking Score**
-
-{ranking:.2f}
-
-**🔥 Popularity**
-
-{popularity}
-
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-
-        if pd.notna(row["track_id"]):
-
-            spotify_embed(
-                row["track_id"]
-            )
-# ==========================================================
-# Visualization Tab
-# ==========================================================
+        for offset, (_, row) in enumerate(
+            recommendations.iterrows()
+        ):
+            with (left_col if offset % 2 == 0 else right_col):
+                render_recommendation_card(
+                    row,
+                    selected_track,
+                )
 
 with tab2:
-
-    st.header("📊 Dataset Visualizations")
-
+    st.header("Mood Recommendations")
     st.markdown(
         """
-Explore the learned latent space and the relationships
-between the audio features used by the recommendation model.
-"""
+        Pick a listening mood and TuneMatch will suggest tracks whose audio
+        features best fit that vibe.
+        """
     )
 
-    # ------------------------------------------------------
-    # Latent Space
-    # ------------------------------------------------------
+    selected_mood = st.selectbox(
+        "Choose a mood",
+        MOOD_ORDER,
+    )
+
+    mood_recommendations = recommend_by_mood(
+        df_with_moods,
+        selected_mood,
+        n_recommendations=12,
+    )
+
+    st.caption(
+        f"Generated from energy, tempo, valence, danceability, acousticness, and related audio features."
+    )
+
+    mood_left_col, mood_right_col = st.columns(2)
+
+    for offset, (_, row) in enumerate(
+        mood_recommendations.iterrows()
+    ):
+        with (
+            mood_left_col
+            if offset % 2 == 0
+            else mood_right_col
+        ):
+            mood_score = float(
+                row[f"{selected_mood.lower()}_score"]
+            ) * 100
+            mood_match_score = float(
+                row["mood_match_score"]
+            ) * 100
+            reasons = explain_mood_fit(
+                row,
+                selected_mood,
+            )
+
+            with st.container(border=True):
+                st.markdown(
+                    f"""
+                    **{row["track_name"]}**  
+                    {row["artists"]}  
+                    Genre: {row["track_genre"]}  
+                    Primary mood: {row["mood"]}
+                    """
+                )
+                st.progress(
+                    float(row[f"{selected_mood.lower()}_score"])
+                )
+                st.caption(
+                    f"{mood_score:.2f}% mood fit | {mood_match_score:.2f}% final mood score"
+                )
+                st.write(
+                    f"This song was selected for {selected_mood.lower()} because its audio profile strongly matches that mood."
+                )
+
+                for reason in reasons:
+                    st.write(f"- {reason}")
+
+                track_id = row.get("track_id")
+                if pd.notna(track_id):
+                    spotify_embed(track_id)
+
+with tab3:
+    st.header("Genre Explorer")
+    st.markdown(
+        """
+        Browse popular tracks by genre family without searching. This is great
+        for quick discovery when you already know the vibe you want.
+        """
+    )
+
+    selected_genre = st.selectbox(
+        "Choose a genre",
+        GENRE_EXPLORER_OPTIONS,
+    )
+
+    generated_playlist = generate_genre_playlist(
+        df,
+        selected_genre,
+        playlist_size=20,
+    )
+
+    genre_recommendations = recommend_by_genre(
+        df,
+        selected_genre,
+        n_recommendations=12,
+    )
+
+    st.subheader(f"{selected_genre} Playlist Generator")
+
+    if generated_playlist.empty:
+        st.warning(
+            f"No playlist could be generated for the {selected_genre} explorer group."
+        )
+    else:
+        st.caption(
+            f"Generated a {len(generated_playlist)}-song playlist for {selected_genre}."
+        )
+
+        playlist_table = generated_playlist[
+            ["track_name", "artists", "track_genre"]
+        ].copy()
+        playlist_table.columns = [
+            "Track",
+            "Artist",
+            "Genre",
+        ]
+        st.dataframe(
+            playlist_table,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    if genre_recommendations.empty:
+        st.warning(
+            f"No tracks were found for the {selected_genre} explorer group."
+        )
+    else:
+        st.caption(
+            f"Showing browseable {selected_genre.lower()} picks without using search."
+        )
+
+        genre_left_col, genre_right_col = st.columns(2)
+
+        for offset, (_, row) in enumerate(
+            genre_recommendations.iterrows()
+        ):
+            with (
+                genre_left_col
+                if offset % 2 == 0
+                else genre_right_col
+            ):
+                popularity = (
+                    row["popularity"]
+                    if "popularity" in row
+                    else "N/A"
+                )
+
+                with st.container(border=True):
+                    st.markdown(
+                        f"""
+                        **{row["track_name"]}**  
+                        {row["artists"]}  
+                        Genre: {row["track_genre"]}
+                        """
+                    )
+                    st.caption(
+                        f"Popularity: {popularity}"
+                    )
+                    st.write(
+                        f"This track appears in the {selected_genre.lower()} explorer because its dataset genre maps into that family."
+                    )
+
+                    track_id = row.get("track_id")
+                    if pd.notna(track_id):
+                        spotify_embed(track_id)
+
+with tab4:
+    st.header("Dataset Visualizations")
+    st.markdown(
+        """
+        Explore the learned latent space and the relationships
+        between the audio features used by the recommendation model.
+        """
+    )
 
     st.subheader("3D Latent Space")
-
     with st.spinner("Generating visualization..."):
-
         fig = plot_tracks_by_genre(
             latent_features,
             df,
@@ -330,56 +439,29 @@ between the audio features used by the recommendation model.
     )
 
     st.divider()
-
-    # ------------------------------------------------------
-    # Correlation Heatmap
-    # ------------------------------------------------------
-
     st.subheader("Feature Correlation")
 
     heatmap = plot_feature_heatmap(
         df,
         NUMERIC_FEATURES,
     )
-
     st.plotly_chart(
         heatmap,
         use_container_width=True,
     )
 
     st.divider()
-
-    # ------------------------------------------------------
-    # Dataset Statistics
-    # ------------------------------------------------------
-
     st.subheader("Dataset Statistics")
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-
-        st.metric(
-            "Songs",
-            f"{len(df):,}",
-        )
-
-    with col2:
-
-        st.metric(
-            "Genres",
-            df["track_genre"].nunique(),
-        )
-
-    with col3:
-
-        st.metric(
-            "Artists",
-            df["artists"].nunique(),
-        )
+    stat_col1, stat_col2, stat_col3 = st.columns(3)
+    with stat_col1:
+        st.metric("Songs", f"{len(df):,}")
+    with stat_col2:
+        st.metric("Genres", df["track_genre"].nunique())
+    with stat_col3:
+        st.metric("Artists", df["artists"].nunique())
 
     st.divider()
-
     st.subheader("Genre Distribution")
 
     genre_counts = (
@@ -387,7 +469,6 @@ between the audio features used by the recommendation model.
         .value_counts()
         .reset_index()
     )
-
     genre_counts.columns = [
         "Genre",
         "Songs",
@@ -397,12 +478,7 @@ between the audio features used by the recommendation model.
         genre_counts.set_index("Genre")
     )
 
-# ==========================================================
-# Footer
-# ==========================================================
-
 st.divider()
-
 st.caption(
-    "TuneMatch • Deep Autoencoder + KNN • Built with TensorFlow, Scikit-learn and Streamlit"
+    "TuneMatch | Deep Autoencoder + KNN | Built with TensorFlow, scikit-learn, RapidFuzz, and Streamlit"
 )
