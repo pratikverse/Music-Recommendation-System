@@ -60,6 +60,24 @@ GENRE_KEYWORDS = {
     ],
 }
 
+GENRE_FAMILY_SYNONYMS = {
+    "Pop": {"pop"},
+    "Rock": {"rock", "alternative", "grunge", "punk"},
+    "EDM": {
+        "edm",
+        "electronic",
+        "electro",
+        "dance",
+        "house",
+        "techno",
+        "trance",
+        "dubstep",
+        "drum-and-bass",
+    },
+    "Jazz": {"jazz", "blues"},
+    "Metal": {"metal", "hardcore"},
+}
+
 
 def normalize_genre_text(value: object) -> str:
     if value is None or pd.isna(value):
@@ -78,6 +96,34 @@ def matches_genre_family(track_genre: str, selected_genre: str) -> bool:
         keyword.casefold() in normalized
         for keyword in keywords
     )
+
+
+def infer_genre_families(track_genre: str) -> set[str]:
+    """
+    Infer one or more broad genre families from a dataset genre label.
+    """
+
+    normalized = normalize_genre_text(track_genre)
+    matched_families: set[str] = set()
+
+    for family, keywords in GENRE_KEYWORDS.items():
+        if any(
+            keyword.casefold() in normalized
+            for keyword in keywords
+        ):
+            matched_families.add(family)
+
+    tokens = {
+        token
+        for token in normalized.replace("-", " ").split()
+        if token
+    }
+
+    for family, synonyms in GENRE_FAMILY_SYNONYMS.items():
+        if tokens & synonyms:
+            matched_families.add(family)
+
+    return matched_families
 
 
 def recommend_by_genre(

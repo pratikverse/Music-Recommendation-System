@@ -16,7 +16,11 @@ from src.models.mood import (
     recommend_by_mood,
 )
 from src.models.preprocessing import NUMERIC_FEATURES
-from src.models.recommender import get_track_details, recommend_tracks
+from src.models.recommender import (
+    INTENT_WEIGHT_PROFILES,
+    get_track_details,
+    recommend_tracks,
+)
 from src.models.search import build_search_index, intelligent_search
 from src.models.visualization import plot_feature_heatmap, plot_tracks_by_genre
 
@@ -95,7 +99,12 @@ def render_recommendation_card(
         recommendation,
     )
     similarity = explanation["similarity_percent"]
+    latent_similarity = explanation["latent_similarity_percent"]
+    audio_similarity = explanation["audio_similarity_percent"]
+    genre_score = explanation["genre_score_percent"]
     ranking = explanation["ranking_score_percent"]
+    popularity_score = explanation["popularity_score_percent"]
+    source_support = explanation["source_support_percent"]
     popularity = explanation["popularity"]
 
     with st.container(border=True):
@@ -114,13 +123,55 @@ def render_recommendation_card(
         st.write("Why this song was chosen")
         st.write(explanation["summary"])
         st.write(
-            f'Ranking breakdown: similarity contributed the most, and popularity helped refine the final score to {ranking:.2f}%.'
+            f"Hybrid breakdown: latent {latent_similarity:.2f}% | audio {audio_similarity:.2f}% | genre {genre_score:.2f}% | popularity {popularity_score:.2f}% | source support {source_support:.2f}%."
         )
+
+        if explanation["same_genre"]:
+            st.write("Genre alignment: exact genre match.")
+        elif explanation["same_genre_family"]:
+            st.write("Genre alignment: matched through a broader genre family.")
+
+        active_sources = []
+        if explanation["source_latent"]:
+            active_sources.append("latent")
+        if explanation["source_audio"]:
+            active_sources.append("audio")
+        if explanation["source_genre"]:
+            active_sources.append("genre")
+        if explanation["source_popularity"]:
+            active_sources.append("popularity")
+        if active_sources:
+            st.write(
+                f'Retrieval sources: {", ".join(active_sources)}.'
+            )
 
         if explanation["top_reasons"]:
             st.write("Main reasons:")
             for reason in explanation["top_reasons"]:
                 st.write(f"- {reason}")
+
+        with st.expander("Score details"):
+            score_breakdown = pd.DataFrame(
+                {
+                    "Component": [
+                        "Latent similarity",
+                        "Audio similarity",
+                        "Genre score",
+                        "Popularity score",
+                        "Source support",
+                    ],
+                    "Percent": [
+                        latent_similarity,
+                        audio_similarity,
+                        genre_score,
+                        popularity_score,
+                        source_support,
+                    ],
+                }
+            )
+            st.bar_chart(
+                score_breakdown.set_index("Component")
+            )
 
         if explanation["feature_matches"]:
             st.write("Feature-level similarity:")
@@ -170,6 +221,12 @@ with tab1:
         "Search by song title or artist",
         placeholder="Try: blinding lights, weeknd, shape of you, calm down...",
         help="Supports partial matches, artist search, autocomplete-style suggestions, and typo correction.",
+    )
+
+    recommendation_intent = st.selectbox(
+        "Recommendation style",
+        list(INTENT_WEIGHT_PROFILES.keys()),
+        help="Adjusts the hybrid ranking profile for same-vibe, same-genre, discovery, popularity, or energy-focused recommendations.",
     )
 
     if search_query.strip():
@@ -238,6 +295,7 @@ with tab1:
             dataframe=df,
             latent_features=latent_features,
             knn=knn,
+            intent=recommendation_intent,
         )
 
         left_col, right_col = st.columns(2)

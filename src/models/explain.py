@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from src.models.genre import infer_genre_families
+
 
 EXPLAINABLE_FEATURES = [
     "danceability",
@@ -107,11 +109,23 @@ def explain_recommendation(
     similarity = _safe_float(
         recommended_song.get("similarity")
     )
+    latent_similarity = _safe_float(
+        recommended_song.get("latent_similarity")
+    )
+    audio_similarity = _safe_float(
+        recommended_song.get("audio_similarity")
+    )
+    genre_score = _safe_float(
+        recommended_song.get("genre_score")
+    )
     ranking_score = _safe_float(
         recommended_song.get("ranking_score")
     )
     popularity_score = _safe_float(
         recommended_song.get("popularity_score")
+    )
+    source_support_score = _safe_float(
+        recommended_song.get("source_support_score")
     )
     popularity = recommended_song.get(
         "popularity",
@@ -137,6 +151,19 @@ def explain_recommendation(
         == recommended_song.get("track_genre")
     ):
         top_reasons.append("Same genre profile")
+    elif genre_score > 0:
+        top_reasons.append("Related genre family")
+
+    selected_families = infer_genre_families(
+        selected_song.get("track_genre", "")
+    )
+    recommended_families = infer_genre_families(
+        recommended_song.get("track_genre", "")
+    )
+
+    same_genre_family = bool(
+        selected_families & recommended_families
+    )
 
     if (
         selected_song.get("artists")
@@ -151,7 +178,10 @@ def explain_recommendation(
 
     explanation_summary = (
         f'This song was recommended because it has a '
-        f'{similarity * 100:.2f}% latent-space similarity match'
+        f'{ranking_score * 100:.2f}% hybrid recommendation score, built from '
+        f'{latent_similarity * 100:.2f}% latent similarity, '
+        f'{audio_similarity * 100:.2f}% audio similarity, '
+        f'and a {genre_score * 100:.2f}% genre match'
     )
 
     if feature_matches:
@@ -167,16 +197,33 @@ def explain_recommendation(
 
     return {
         "similarity_percent": similarity * 100,
+        "latent_similarity_percent": latent_similarity * 100,
+        "audio_similarity_percent": audio_similarity * 100,
+        "genre_score_percent": genre_score * 100,
         "ranking_score_percent": ranking_score * 100,
         "popularity_score_percent": popularity_score * 100,
+        "source_support_percent": source_support_score * 100,
         "popularity": popularity,
         "summary": explanation_summary,
         "top_reasons": top_reasons,
         "feature_matches": feature_matches,
+        "source_latent": bool(
+            _safe_float(recommended_song.get("source_latent"))
+        ),
+        "source_audio": bool(
+            _safe_float(recommended_song.get("source_audio"))
+        ),
+        "source_genre": bool(
+            _safe_float(recommended_song.get("source_genre"))
+        ),
+        "source_popularity": bool(
+            _safe_float(recommended_song.get("source_popularity"))
+        ),
         "same_genre": (
             selected_song.get("track_genre")
             == recommended_song.get("track_genre")
         ),
+        "same_genre_family": same_genre_family,
         "same_artist": (
             selected_song.get("artists")
             == recommended_song.get("artists")
