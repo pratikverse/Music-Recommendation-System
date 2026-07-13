@@ -31,9 +31,173 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🎧 TuneMatch AI")
-st.caption(
-    "AI-powered music recommendation engine using deep autoencoders"
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:
+            radial-gradient(circle at top left, rgba(249, 115, 22, 0.18), transparent 28%),
+            radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 24%),
+            linear-gradient(180deg, #07111F 0%, #091827 100%);
+    }
+
+    .block-container {
+        max-width: 1240px;
+        padding-top: 1.5rem;
+        padding-bottom: 2.5rem;
+    }
+
+    div[data-testid="stMetric"] {
+        background: linear-gradient(180deg, rgba(15, 33, 56, 0.95), rgba(8, 20, 36, 0.95));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 22px;
+        padding: 1rem 1.1rem;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.20);
+    }
+
+    div[data-testid="stTabs"] button {
+        border-radius: 999px;
+        padding: 0.5rem 1rem;
+    }
+
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] > div {
+        background: rgba(15, 33, 56, 0.92);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    div.stButton > button {
+        background: linear-gradient(90deg, #F97316 0%, #FB923C 100%);
+        color: white;
+        border: none;
+        border-radius: 16px;
+        padding: 0.8rem 1rem;
+        font-weight: 700;
+        box-shadow: 0 14px 28px rgba(249, 115, 22, 0.28);
+    }
+
+    div.stButton > button:hover {
+        background: linear-gradient(90deg, #EA580C 0%, #F97316 100%);
+        color: white;
+    }
+
+    .tm-hero {
+        padding: 1.8rem 1.8rem 1.6rem 1.8rem;
+        border-radius: 28px;
+        background:
+            linear-gradient(135deg, rgba(249, 115, 22, 0.22), rgba(14, 165, 233, 0.14)),
+            rgba(8, 20, 36, 0.94);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.22);
+        margin-bottom: 1rem;
+    }
+
+    .tm-kicker {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(249, 115, 22, 0.16);
+        color: #FDBA74;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 0.9rem;
+    }
+
+    .tm-title {
+        font-size: 3rem;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        margin: 0;
+        color: #F8FAFC;
+    }
+
+    .tm-subtitle {
+        margin-top: 0.9rem;
+        max-width: 760px;
+        font-size: 1.02rem;
+        line-height: 1.7;
+        color: #CBD5E1;
+    }
+
+    .tm-pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 1rem;
+    }
+
+    .tm-pill {
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #E2E8F0;
+        font-size: 0.9rem;
+    }
+
+    .tm-section-copy {
+        color: #A8B3C7;
+        margin-bottom: 0.8rem;
+    }
+
+    .tm-card {
+        background: linear-gradient(180deg, rgba(15, 33, 56, 0.96), rgba(8, 20, 36, 0.96));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 22px;
+        padding: 1rem 1rem 0.55rem 1rem;
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.18);
+        margin-bottom: 0.8rem;
+    }
+
+    .tm-card-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #F8FAFC;
+        margin-bottom: 0.2rem;
+    }
+
+    .tm-card-meta {
+        color: #A8B3C7;
+        margin-bottom: 0.2rem;
+    }
+
+    .tm-card-badge {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.32rem 0.7rem;
+        border-radius: 999px;
+        background: rgba(14, 165, 233, 0.12);
+        color: #7DD3FC;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="tm-hero">
+        <div class="tm-kicker">Music Intelligence</div>
+        <h1 class="tm-title">TuneMatch AI</h1>
+        <div class="tm-subtitle">
+            Discover songs through hybrid recommendation signals that blend deep latent similarity,
+            audio features, genre intelligence, popularity cues, mood profiling, and playlist generation.
+        </div>
+        <div class="tm-pill-row">
+            <div class="tm-pill">Hybrid Recommender</div>
+            <div class="tm-pill">Mood Discovery</div>
+            <div class="tm-pill">Genre Explorer</div>
+            <div class="tm-pill">Explainable AI</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -82,11 +246,14 @@ def render_track_summary(track: pd.Series) -> None:
 
     st.markdown(
         f"""
-        ### {track["track_name"]}
-        **Artist:** {track["artists"]}  
-        **Genre:** {track["track_genre"]}  
-        **Popularity:** {popularity}
-        """
+        <div class="tm-card">
+            <div class="tm-card-title">{track["track_name"]}</div>
+            <div class="tm-card-meta">Artist: {track["artists"]}</div>
+            <div class="tm-card-meta">Genre: {track["track_genre"]}</div>
+            <div class="tm-card-badge">Popularity {popularity}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -110,10 +277,14 @@ def render_recommendation_card(
     with st.container(border=True):
         st.markdown(
             f"""
-            **{recommendation["track_name"]}**  
-            {recommendation["artists"]}  
-            Genre: {recommendation["track_genre"]}
-            """
+            <div class="tm-card">
+                <div class="tm-card-title">{recommendation["track_name"]}</div>
+                <div class="tm-card-meta">{recommendation["artists"]}</div>
+                <div class="tm-card-meta">Genre: {recommendation["track_genre"]}</div>
+                <div class="tm-card-badge">Popularity {popularity}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
         st.progress(float(recommendation["similarity"]))
         st.caption(
@@ -212,6 +383,10 @@ st.divider()
 
 with tab1:
     st.header("Music Recommendations")
+    st.markdown(
+        '<div class="tm-section-copy">Search by title or artist, choose a recommendation style, and inspect the hybrid score breakdown behind each suggestion.</div>',
+        unsafe_allow_html=True,
+    )
 
     if df.empty:
         st.error("No songs available.")
@@ -312,10 +487,8 @@ with tab1:
 with tab2:
     st.header("Mood Recommendations")
     st.markdown(
-        """
-        Pick a listening mood and TuneMatch will suggest tracks whose audio
-        features best fit that vibe.
-        """
+        '<div class="tm-section-copy">Pick a listening mood and TuneMatch will surface tracks whose audio signatures best match that context.</div>',
+        unsafe_allow_html=True,
     )
 
     selected_mood = st.selectbox(
@@ -330,7 +503,7 @@ with tab2:
     )
 
     st.caption(
-        f"Generated from energy, tempo, valence, danceability, acousticness, and related audio features."
+        "Generated from energy, tempo, valence, danceability, acousticness, and related audio features."
     )
 
     mood_left_col, mood_right_col = st.columns(2)
@@ -357,11 +530,14 @@ with tab2:
             with st.container(border=True):
                 st.markdown(
                     f"""
-                    **{row["track_name"]}**  
-                    {row["artists"]}  
-                    Genre: {row["track_genre"]}  
-                    Primary mood: {row["mood"]}
-                    """
+                    <div class="tm-card">
+                        <div class="tm-card-title">{row["track_name"]}</div>
+                        <div class="tm-card-meta">{row["artists"]}</div>
+                        <div class="tm-card-meta">Genre: {row["track_genre"]}</div>
+                        <div class="tm-card-badge">Primary mood {row["mood"]}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
                 )
                 st.progress(
                     float(row[f"{selected_mood.lower()}_score"])
@@ -383,10 +559,8 @@ with tab2:
 with tab3:
     st.header("Genre Explorer")
     st.markdown(
-        """
-        Browse popular tracks by genre family without searching. This is great
-        for quick discovery when you already know the vibe you want.
-        """
+        '<div class="tm-section-copy">Browse curated genre families and generate ready-to-share playlists without typing a search query.</div>',
+        unsafe_allow_html=True,
     )
 
     selected_genre = st.selectbox(
@@ -459,13 +633,14 @@ with tab3:
                 with st.container(border=True):
                     st.markdown(
                         f"""
-                        **{row["track_name"]}**  
-                        {row["artists"]}  
-                        Genre: {row["track_genre"]}
-                        """
-                    )
-                    st.caption(
-                        f"Popularity: {popularity}"
+                        <div class="tm-card">
+                            <div class="tm-card-title">{row["track_name"]}</div>
+                            <div class="tm-card-meta">{row["artists"]}</div>
+                            <div class="tm-card-meta">Genre: {row["track_genre"]}</div>
+                            <div class="tm-card-badge">Popularity {popularity}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
                     )
                     st.write(
                         f"This track appears in the {selected_genre.lower()} explorer because its dataset genre maps into that family."
@@ -478,10 +653,8 @@ with tab3:
 with tab4:
     st.header("Dataset Visualizations")
     st.markdown(
-        """
-        Explore the learned latent space and the relationships
-        between the audio features used by the recommendation model.
-        """
+        '<div class="tm-section-copy">Explore the learned latent space and the feature relationships that power the recommendation engine.</div>',
+        unsafe_allow_html=True,
     )
 
     st.subheader("3D Latent Space")
@@ -538,5 +711,5 @@ with tab4:
 
 st.divider()
 st.caption(
-    "TuneMatch | Deep Autoencoder + KNN | Built with TensorFlow, scikit-learn, RapidFuzz, and Streamlit"
+    "TuneMatch | Hybrid music recommendation, mood discovery, genre exploration, and explainable AI in one polished Streamlit experience."
 )
