@@ -15,11 +15,13 @@ env/
 
 # Data and model files (large and generated)
 data/preprocessed/
-*.pkl
-*.npy
 models/trained/
 model_metrics.txt
 training_history.png
+
+# Keep deployed inference artifacts in version control
+!models/*.pkl
+!models/*.npy
 
 # Streamlit cache
 .streamlit/cache/  # Add this if you use Streamlit's cache

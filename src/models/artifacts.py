@@ -4,6 +4,8 @@ Utilities for saving and loading model artifacts.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -75,53 +77,64 @@ def save_artifacts(
 # Individual Loaders
 # ==========================================================
 
+def _ensure_artifact_exists(path: Path) -> Path:
+    """
+    Raise a clear error when a required artifact is missing.
+    """
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Required artifact not found: {path}. "
+            "Make sure the trained files in the models/ directory are committed and deployed."
+        )
+    return path
+
 def load_autoencoder() -> Model:
     """
     Load the trained autoencoder.
     """
-    return load_model(AUTOENCODER_PATH)
+    return load_model(_ensure_artifact_exists(AUTOENCODER_PATH))
 
 
 def load_encoder() -> Model:
     """
     Load the trained encoder.
     """
-    return load_model(ENCODER_PATH)
+    return load_model(_ensure_artifact_exists(ENCODER_PATH))
 
 
 def load_dataframe() -> pd.DataFrame:
     """
     Load processed dataframe.
     """
-    return pd.read_pickle(DATAFRAME_PATH)
+    return pd.read_pickle(_ensure_artifact_exists(DATAFRAME_PATH))
 
 
 def load_latent_features() -> np.ndarray:
     """
     Load latent embeddings.
     """
-    return np.load(LATENT_FEATURES_PATH)
+    return np.load(_ensure_artifact_exists(LATENT_FEATURES_PATH))
 
 
 def load_knn():
     """
     Load trained KNN model.
     """
-    return joblib.load(KNN_MODEL_PATH)
+    return joblib.load(_ensure_artifact_exists(KNN_MODEL_PATH))
 
 
 def load_scaler():
     """
     Load fitted StandardScaler.
     """
-    return joblib.load(SCALER_PATH)
+    return joblib.load(_ensure_artifact_exists(SCALER_PATH))
 
 
 def load_label_encoder():
     """
     Load fitted LabelEncoder.
     """
-    return joblib.load(LABEL_ENCODER_PATH)
+    return joblib.load(_ensure_artifact_exists(LABEL_ENCODER_PATH))
 
 
 # ==========================================================
